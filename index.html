@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Socket.IO OpenAI Test Client</title>
+    <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: bold;
+        }
+        .connected {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .disconnected {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        input, textarea, select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: #007bff;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        .response {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 6px;
+            background-color: #f8f9fa;
+            border-left: 4px solid #007bff;
+        }
+        .response.success {
+            background-color: #d4edda;
+            border-left-color: #28a745;
+        }
+        .response.error {
+            background-color: #f8d7da;
+            border-left-color: #dc3545;
+        }
+        .response.processing {
+            background-color: #fff3cd;
+            border-left-color: #ffc107;
+        }
+        .usage {
+            font-size: 14px;
+            color: #666;
+            margin-top: 10px;
+        }
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #007bff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔌 Socket.IO OpenAI Test Client</h1>
+        
+        <div id="status" class="status disconnected">
+            Отключено
+        </div>
+        
+        <div class="form-group">
+            <label for="prompt">Сообщение для OpenAI:</label>
+            <textarea id="prompt" rows="4" placeholder="Введите ваш запрос к OpenAI...">Привет! Расскажи мне что-нибудь интересное о технологиях.</textarea>
+        </div>
+        
+        <div class="form-group">
+            <label for="model">Модель:</label>
+            <select id="model">
+                <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                <option value="gpt-4">GPT-4</option>
+                <option value="gpt-4-turbo">GPT-4 Turbo</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="maxTokens">Максимум токенов:</label>
+            <input type="number" id="maxTokens" value="1000" min="1" max="4000">
+        </div>
+        
+        <div class="form-group">
+            <label for="temperature">Температура (креативность):</label>
+            <input type="range" id="temperature" min="0" max="2" step="0.1" value="0.7">
+            <span id="tempValue">0.7</span>
+        </div>
+        
+        <div class="form-group">
+            <label for="personaType">Тип характера:</label>
+            <select id="personaType">
+                <option value="melancholic">Меланхолик</option>
+                <option value="choleric">Холерик</option>
+                <option value="phlegmatic">Флегматик</option>
+                <option value="sanguine">Сангвиник</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="archetypeType">Архетипический слой:</label>
+            <select id="archetypeType">
+                <option value="innocent">Невинный</option>
+                <option value="hero">Герой</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="bigFiveType">BIG FIVE:</label>
+            <select id="bigFiveType">
+                <option value="openness">Открытость опыту</option>
+                <option value="conscientiousness">Добросовестность</option>
+                <option value="extraversion">Экстраверсия</option>
+                <option value="agreeableness">Доброжелательность</option>
+                <option value="neuroticism">Невротизм</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="behavioralType">Поведенческий слой:</label>
+            <select id="behavioralType">
+                <option value="analyst">Аналитик</option>
+                <option value="diplomat">Дипломат</option>
+                <option value="sentinel">Страж</option>
+                <option value="explorer">Исследователь</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="valueType">Ценностный слой:</label>
+            <select id="valueType">
+                <option value="hedonism">Гедонизм</option>
+                <option value="stimulation">Стимуляция</option>
+                <option value="self_direction">Самостоятельность</option>
+                <option value="universalism">Универсализм</option>
+                <option value="benevolence">Доброжелательность</option>
+                <option value="tradition">Традиции</option>
+                <option value="conformity">Конформность</option>
+                <option value="security">Безопасность</option>
+                <option value="power">Власть</option>
+                <option value="achievement">Достижения</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="hobby">Увлечение:</label>
+            <select id="hobby">
+                <option value="travel">Путешествия</option>
+                <option value="music">Музыка</option>
+                <option value="sport">Спорт</option>
+                <option value="reading">Чтение</option>
+                <option value="cooking">Кулинария</option>
+                <option value="art">Творчество</option>
+            </select>
+        </div>
+        
+        <button id="sendBtn" onclick="sendRequest()">Отправить запрос</button>
+        <button id="clearBtn" onclick="clearHistory()" style="margin-left:10px;background:#dc3545;">Стереть историю</button>
+        <div id="dialog" style="margin-top:30px;"></div>
+        <div id="response" style="display: none;"></div>
+    </div>
+
+    <script>
+        const socket = io('http://95.165.135.116');
+        const statusDiv = document.getElementById('status');
+        const responseDiv = document.getElementById('response');
+        const sendBtn = document.getElementById('sendBtn');
+        const tempSlider = document.getElementById('temperature');
+        const tempValue = document.getElementById('tempValue');
+        
+        // Обновление значения температуры
+        tempSlider.addEventListener('input', function() {
+            tempValue.textContent = this.value;
+        });
+        
+        // Socket.IO события
+        socket.on('connect', () => {
+            statusDiv.textContent = 'Подключено';
+            statusDiv.className = 'status connected';
+            console.log('Подключено к серверу');
+        });
+        
+        socket.on('disconnect', () => {
+            statusDiv.textContent = 'Отключено';
+            statusDiv.className = 'status disconnected';
+            console.log('Отключено от сервера');
+        });
+        
+        socket.on('openai_response', (data) => {
+            console.log('Получен ответ:', data);
+            
+            if (data.status === 'processing') {
+                showResponse('processing', 'Обрабатываем ваш запрос...', null);
+            } else if (data.status === 'success') {
+                showResponse('success', data.response, data.usage);
+                if (data.messages) {
+                    renderDialog(data.messages);
+                }
+            } else if (data.status === 'error') {
+                showResponse('error', `Ошибка: ${data.error}`, null);
+            }
+            
+            sendBtn.disabled = false;
+            sendBtn.textContent = 'Отправить запрос';
+        });
+        socket.on('history_cleared', () => {
+            document.getElementById('dialog').innerHTML = '';
+            showResponse('success', 'История чата очищена.', null);
+            // Разблокируем выбор всех слоёв после очистки истории
+            document.getElementById('personaType').disabled = false;
+            document.getElementById('archetypeType').disabled = false;
+            document.getElementById('bigFiveType').disabled = false;
+            document.getElementById('behavioralType').disabled = false;
+            document.getElementById('valueType').disabled = false;
+            document.getElementById('hobby').disabled = false;
+        });
+        function clearHistory() {
+            socket.emit('clear_history');
+        }
+        function renderDialog(messages) {
+            const dialogDiv = document.getElementById('dialog');
+            let html = '';
+            messages.forEach(msg => {
+                if (msg.role === 'user') {
+                    html += `<div style='text-align:right;margin:8px 0;'><span style='display:inline-block;background:#007bff;color:#fff;padding:8px 14px;border-radius:16px 16px 2px 16px;max-width:70%;'>${escapeHtml(msg.content)}</span></div>`;
+                } else if (msg.role === 'assistant') {
+                    html += `<div style='text-align:left;margin:8px 0;'><span style='display:inline-block;background:#f1f0f0;color:#222;padding:8px 14px;border-radius:16px 16px 16px 2px;max-width:70%;'>${escapeHtml(msg.content)}</span></div>`;
+                }
+            });
+            dialogDiv.innerHTML = html;
+        }
+        function escapeHtml(text) {
+            return text.replace(/[&<>"']/g, function(m) {
+                return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[m];
+            });
+        }
+        
+        function sendRequest() {
+            const prompt = document.getElementById('prompt').value;
+            const model = document.getElementById('model').value;
+            const maxTokens = parseInt(document.getElementById('maxTokens').value);
+            const temperature = parseFloat(document.getElementById('temperature').value);
+            const personaType = document.getElementById('personaType').value;
+            const archetypeType = document.getElementById('archetypeType').value;
+            const bigFiveType = document.getElementById('bigFiveType').value;
+            const behavioralType = document.getElementById('behavioralType').value;
+            const valueType = document.getElementById('valueType').value;
+            const hobby = document.getElementById('hobby').value;
+            if (!prompt.trim()) {
+                alert('Пожалуйста, введите сообщение');
+                return;
+            }
+            // Блокируем выбор всех слоёв после первого сообщения
+            document.getElementById('personaType').disabled = true;
+            document.getElementById('archetypeType').disabled = true;
+            document.getElementById('bigFiveType').disabled = true;
+            document.getElementById('behavioralType').disabled = true;
+            document.getElementById('valueType').disabled = true;
+            document.getElementById('hobby').disabled = true;
+            const request = {
+                prompt: prompt,
+                model: model,
+                max_tokens: maxTokens,
+                temperature: temperature,
+                personaType: personaType,
+                archetypeType: archetypeType,
+                bigFiveType: bigFiveType,
+                behavioralType: behavioralType,
+                valueType: valueType,
+                hobby: hobby
+            };
+            console.log('Отправляем запрос:', request);
+            socket.emit('openai_request', request);
+            sendBtn.disabled = true;
+            sendBtn.textContent = 'Отправляем...';
+            showResponse('processing', 'Отправляем запрос...', null);
+        }
+        
+        function showResponse(type, message, usage) {
+            responseDiv.style.display = 'block';
+            responseDiv.className = `response ${type}`;
+            
+            let html = '';
+            if (type === 'processing') {
+                html = `<div class="loading"></div> ${message}`;
+            } else if (type === 'success') {
+                html = `<strong>Ответ от OpenAI:</strong><br>${message}`;
+                if (usage) {
+                    html += `<div class="usage">
+                        <strong>Использование токенов:</strong><br>
+                        Промпт: ${usage.prompt_tokens} | Ответ: ${usage.completion_tokens} | Всего: ${usage.total_tokens}
+                    </div>`;
+                }
+            } else if (type === 'error') {
+                html = `<strong>Ошибка:</strong><br>${message}`;
+            }
+            
+            responseDiv.innerHTML = html;
+        }
+    </script>
+</body>
+</html> 
